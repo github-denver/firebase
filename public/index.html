@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Firebase</title>
+    <!-- Let browser know website is optimized for mobile -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Import Google Icon Font -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <!--
+      Import materialize.css
+      Compiled and minified CSS
+    -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/css/materialize.min.css" />
+    <style>
+      ::-webkit-scrollbar {
+        display: none;
+      }
+
+      .collection {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="row">
+      <div class="col s3" style="padding: 0; margin: 0; overflow-y: auto; overflow-x: hidden; height: 1080px; -ms-overflow-style: none">
+        <!-- Grey navigation panel -->
+        <ul class="collection" style="padding: 0; margin: 0"></ul>
+      </div>
+
+      <div class="col s9" style="padding: 0; margin: 0; max-height: 1080px">
+        <!-- Teal page content  -->
+        <nav>
+          <div class="nav-wrapper">
+            <div class="col s12">
+              <a href="#!" class="breadcrumb"><span id="modifyDate"></span></a>
+            </div>
+          </div>
+        </nav>
+
+        <textarea style="height: 1000px" class="textarea" width="100%" rows="1000" placeholder="새로운 메모를 입력해보세요^^"></textarea>
+      </div>
+
+      <div class="fixed-action-btn" style="bottom: 45px; right: 24px">
+        <a class="btn-floating btn-large waves-effect waves-light red" onclick="initMemo()"><i class="material-icons">add</i></a>
+      </div>
+
+      <div class="preloader-wrapper big active" style="position: absolute; z-index: 1000; left: 50%; top: 50%; display: none">
+        <div class="spinner-layer spinner-blue-only">
+          <div class="circle-clipper left">
+            <div class="circle"></div>
+          </div>
+          <div class="gap-patch">
+            <div class="circle"></div>
+          </div>
+          <div class="circle-clipper right">
+            <div class="circle"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import jQuery before materialize.js -->
+    <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/js/materialize.min.js"></script>
+
+    <!-- The core Firebase JS SDK is always required and must be listed first -->
+    <script src="https://www.gstatic.com/firebasejs/8.3.0/firebase-app.js"></script>
+
+    <!--
+      TODO: Add SDKs for Firebase products that you want to use
+      https://firebase.google.com/docs/web/setup#available-libraries
+    -->
+    <script src="https://www.gstatic.com/firebasejs/8.3.0/firebase-analytics.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.3.0/firebase-auth.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.3.0/firebase-database.js"></script>
+
+    <script>
+      // Your web app's Firebase configuration
+      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+      var firebaseConfig = {
+        apiKey: 'AIzaSyB_zIexFcOLRmg9EeGHlW_mJT22WVZ3PAI',
+        authDomain: 'denverworld-5346f.firebaseapp.com',
+        projectId: 'denverworld-5346f',
+        storageBucket: 'denverworld-5346f.appspot.com',
+        messagingSenderId: '934389112389',
+        appId: '1:934389112389:web:459af1c3c1f76ed0924d2c',
+        measurementId: 'G-N6JW64J0H1'
+      }
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig)
+      firebase.analytics()
+
+      var auth
+      var database
+      var userInfo
+      var selectedKey
+
+      auth = firebase.auth()
+      console.log('auth: ', auth)
+
+      database = firebase.database()
+      console.log('database: ', database)
+
+      var authProvider = new firebase.auth.GoogleAuthProvider()
+      console.log('authProvider: ', authProvider)
+
+      auth.onAuthStateChanged(function (user) {
+        if (user) {
+          console.log('user: ', user)
+          // 메모 목록을 노출합니다.
+          userInfo = user
+
+          getMemoList()
+        } else {
+          // 인증 창을 호출합니다.
+          auth.signInWithPopup(authProvider)
+        }
+      })
+
+      function onChildAdded(data) {
+        console.log('onChildAdded() → data: ', data)
+        console.log('onChildAdded() → data.val(): ', data.val())
+
+        var key = data.key
+        var memoData = data.val()
+        var text = memoData.text
+        // var title = memoData.title
+        var title = text.substr(0, text.indexOf('\n'))
+        var firsttext = text.substr(0, 1)
+
+        var html = "<li id='" + key + '\' class="collection-item avatar" onclick="getMemo(this)" >' + '<i class="material-icons circle red">' + firsttext + '</i>' + '<span class="title">' + title + '</span>' + "<p class='txt'>" + text + '<br>' + '</p>' + '<button type="button" class="secondary-content" onclick="deleteData(\'' + key + '\')">삭제</button>' + '</li>'
+
+        $('.collection').append(html)
+
+        console.log('onChildAdded() → selectedKey: ', selectedKey)
+
+        initMemo()
+      }
+
+      $('.textarea').on('blur', function () {
+        saveData()
+      })
+
+      function getMemoList() {
+        var memoRef = database.ref('memos/' + userInfo.uid)
+        console.log('getMemoList() → memoRef: ', memoRef)
+
+        memoRef.on('child_added', onChildAdded)
+        memoRef.on('child_changed', function (data) {
+          console.log('getMemoList() → child_added → data.key: ', data.key)
+          console.log('getMemoList() → child_changed → data.val(): ', data.val())
+
+          var key = data.key
+          var text = data.val().text
+          var title = text.substr(0, text.indexOf('\n'))
+
+          $('#' + key)
+            .find('.title')
+            .text(title)
+
+          $('#' + key)
+            .find('.txt')
+            .text(text)
+        })
+      }
+
+      function getMemo(that) {
+        selectedKey = that.id
+        console.log('getMemo() → selectedKey: ', selectedKey)
+
+        var memoRef = database
+          .ref('memos/' + userInfo.uid + '/' + that.id)
+          .once('value')
+          .then(function (snapshot) {
+            console.log('getMemo() → snapshot: ', snapshot)
+            console.log('getMemo() → snapshot.val(): ', snapshot.val())
+
+            var _value = snapshot.val()
+            console.log('getMemo() → _value: ', _value)
+
+            if (!!_value) {
+              $('.textarea').val(_value.text)
+            }
+          })
+
+        console.log('getMemo() → memoRef: ', memoRef)
+      }
+
+      function saveData() {
+        var memoRef = database.ref('memos/' + userInfo.uid)
+        console.log('saveData() → memoRef: ', memoRef)
+
+        var text = $('.textarea').val()
+        console.log('saveData() → text: ', text)
+
+        console.log('saveData() → !text: ', !text)
+        if (!text) {
+          return
+        }
+
+        console.log('saveData() → selectedKey: ', selectedKey)
+        if (selectedKey) {
+          memoRef = database.ref('memos/' + userInfo.uid + '/' + selectedKey)
+          console.log('saveData() → memoRef: ', memoRef)
+
+          memoRef.update({
+            text: text,
+            createDate: new Date().getTime(),
+            updateDate: new Date().getTime()
+          })
+        } else {
+          console.log('saveData() → memoRef: ', memoRef)
+
+          memoRef.push({
+            text: text,
+            createDate: new Date().getTime()
+          })
+        }
+      }
+
+      function deleteData(key) {
+        console.log('deleteData() → key: ', key)
+
+        if (!confirm('정말로 삭제하시겠습니까?')) return
+
+        var memoRef = database.ref('memos/' + userInfo.uid + '/' + key)
+        console.log('deleteData() → memoRef: ', memoRef)
+
+        memoRef.remove()
+
+        $('#' + key).remove()
+
+        initMemo()
+      }
+
+      function initMemo() {
+        $('.textarea').val('')
+
+        selectedKey = null
+      }
+    </script>
+  </body>
+</html>
